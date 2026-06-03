@@ -1,29 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { EchoScan } from "@/components/echo/EchoScan";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "Echo Scan — Acoustic Wall Detection" },
+      {
+        name: "description",
+        content:
+          "Upload or record a sound and Echo Scan analyzes its echo signature to detect solid, cracked, or hollow walls.",
+      },
+      { property: "og:title", content: "Echo Scan — Acoustic Wall Detection" },
+      {
+        property: "og:description",
+        content: "In-browser audio analysis that classifies walls from their echo.",
+      },
     ],
   }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="min-h-screen">
+      <EchoScan />
+    </main>
   );
 }
