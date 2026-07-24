@@ -1,0 +1,12 @@
+import { Router } from "express";
+import { register, login, getMe } from "../controllers/authController.js";
+import { authenticateToken } from "../middleware/authMiddleware.js";
+
+const router = Router();
+
+router.post("/register", register);
+router.post("/login", login);
+router.get("/profile", authenticateToken as any, getMe as any);
+router.get("/me", authenticateToken as any, getMe as any);
+
+export default router;

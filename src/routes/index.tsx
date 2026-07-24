@@ -1,19 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { EchoScan } from "@/components/echo/EchoScan";
+import { LandingHero } from "@/components/echo/LandingHero";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Echo Scan — Acoustic Wall Detection" },
+      { title: "Echo Scan — See Through Walls With Sound" },
       {
         name: "description",
         content:
-          "Upload or record a sound and Echo Scan analyzes its echo signature to detect solid, cracked, or hollow walls.",
+          "Echo Scan uses acoustic analysis to detect solid, cracked, or hollow walls — all privately in your browser.",
       },
-      { property: "og:title", content: "Echo Scan — Acoustic Wall Detection" },
+      { property: "og:title", content: "Echo Scan — See Through Walls With Sound" },
       {
         property: "og:description",
-        content: "In-browser audio analysis that classifies walls from their echo.",
+        content: "In-browser acoustic wall detection powered by the Web Audio API.",
       },
     ],
   }),
@@ -21,9 +21,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  return (
-    <main className="min-h-screen">
-      <EchoScan />
-    </main>
-  );
+  return <LandingHero />;
 }

@@ -6,10 +6,17 @@ interface Props {
   /** Live analyser node for real-time rendering */
   analyser?: AnalyserNode | null;
   height?: number;
-  mode?: "bars" | "waveform";
+  mode?: "line" | "waveform";
+  pointCount?: number;
 }
 
-export function SpectrumVisualizer({ spectrum, analyser, height = 160, mode = "bars" }: Props) {
+export function SpectrumVisualizer({
+  spectrum,
+  analyser,
+  height = 160,
+  mode = "line",
+  pointCount = 96,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -19,12 +26,18 @@ export function SpectrumVisualizer({ spectrum, analyser, height = 160, mode = "b
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = height * dpr;
-      ctx.scale(dpr, dpr);
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.clientWidth;
+      const nextWidth = Math.max(1, Math.round(width * dpr));
+      const nextHeight = Math.max(1, Math.round(height * dpr));
+
+      if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+      }
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -45,27 +58,48 @@ export function SpectrumVisualizer({ spectrum, analyser, height = 160, mode = "b
         } else {
           const buf = new Uint8Array(analyser.frequencyBinCount);
           analyser.getByteFrequencyData(buf);
-          // downsample to ~64 bars over first half of bins
-          const bars = 64;
-          const slice = Math.floor(buf.length * 0.5);
-          const per = Math.max(1, Math.floor(slice / bars));
+          const sampleRate = analyser.context.sampleRate || 48000;
+          const fftSize = analyser.fftSize;
+
+          const bars = pointCount;
+          const minHz = 40;
+          const maxHz = 3800;
+
           for (let b = 0; b < bars; b++) {
-            let m = 0;
-            for (let i = 0; i < per; i++) m = Math.max(m, buf[b * per + i] || 0);
-            data.push(m / 255);
+            const fLow = minHz * Math.pow(maxHz / minHz, b / bars);
+            const fHigh = minHz * Math.pow(maxHz / minHz, (b + 1) / bars);
+
+            const binStart = Math.max(0, Math.floor((fLow * fftSize) / sampleRate));
+            const binEnd = Math.max(binStart + 1, Math.min(buf.length - 1, Math.ceil((fHigh * fftSize) / sampleRate)));
+
+            let maxVal = 0;
+            for (let i = binStart; i < binEnd; i++) {
+              if (buf[i] > maxVal) maxVal = buf[i];
+            }
+            data.push(maxVal / 255);
           }
         }
       } else if (spectrum && spectrum.length) {
         data = spectrum;
+      } else {
+        data = new Array(pointCount).fill(0.05);
       }
 
-      const grad = ctx.createLinearGradient(0, H, 0, 0);
-      grad.addColorStop(0, "oklch(0.82 0.18 200)");
-      grad.addColorStop(1, "oklch(0.68 0.24 305)");
+      // Line Gradient
+      const lineGrad = ctx.createLinearGradient(0, 0, W, 0);
+      lineGrad.addColorStop(0, "rgba(56, 189, 248, 1)"); // Sky blue
+      lineGrad.addColorStop(0.5, "rgba(20, 184, 166, 1)"); // Teal
+      lineGrad.addColorStop(1, "rgba(245, 158, 11, 1)"); // Amber
+
+      // Fill Gradient under line graph
+      const fillGrad = ctx.createLinearGradient(0, 0, 0, H);
+      fillGrad.addColorStop(0, "rgba(56, 189, 248, 0.35)");
+      fillGrad.addColorStop(0.7, "rgba(20, 184, 166, 0.12)");
+      fillGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
 
       if (mode === "waveform" && analyser) {
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = lineGrad;
         ctx.beginPath();
         const step = W / data.length;
         data.forEach((v, i) => {
@@ -75,19 +109,72 @@ export function SpectrumVisualizer({ spectrum, analyser, height = 160, mode = "b
         });
         ctx.stroke();
       } else {
-        const bars = data.length || 64;
-        const gap = 2;
-        const barW = Math.max(2, W / bars - gap);
-        for (let i = 0; i < bars; i++) {
-          const v = data[i] || 0;
-          const h = Math.max(2, v * H * 0.95);
-          const x = i * (barW + gap);
-          ctx.fillStyle = grad;
-          ctx.shadowColor = "oklch(0.82 0.18 200 / 0.6)";
-          ctx.shadowBlur = 8;
-          ctx.fillRect(x, H - h, barW, h);
+        const pointsCount = data.length;
+        const step = W / (pointsCount - 1);
+
+        const pts: { x: number; y: number }[] = data.map((v, i) => {
+          const val = Math.max(0.02, v);
+          return {
+            x: i * step,
+            y: H - val * H * 0.9 - 6,
+          };
+        });
+
+        // 1. Draw Fill Under Smooth Curve
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, H);
+        ctx.lineTo(pts[0].x, pts[0].y);
+
+        for (let i = 0; i < pts.length - 1; i++) {
+          const xc = (pts[i].x + pts[i + 1].x) / 2;
+          const yc = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
         }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+        ctx.lineTo(pts[pts.length - 1].x, H);
+        ctx.closePath();
+
+        ctx.fillStyle = fillGrad;
+        ctx.fill();
+
+        // 2. Draw Smooth Glowing Line Curve
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+
+        for (let i = 0; i < pts.length - 1; i++) {
+          const xc = (pts[i].x + pts[i + 1].x) / 2;
+          const yc = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = lineGrad;
+        ctx.shadowColor = "rgba(56, 189, 248, 0.6)";
+        ctx.shadowBlur = 8;
+        ctx.stroke();
         ctx.shadowBlur = 0;
+
+        // 3. Highlight Peak Dot
+        let peakIdx = 0;
+        let maxVal = -1;
+        data.forEach((v, i) => {
+          if (v > maxVal) {
+            maxVal = v;
+            peakIdx = i;
+          }
+        });
+
+        if (pts[peakIdx] && maxVal > 0.05) {
+          const peakPt = pts[peakIdx];
+          ctx.beginPath();
+          ctx.arc(peakPt.x, peakPt.y, 4, 0, Math.PI * 2);
+          ctx.fillStyle = "#fbbf24";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 10;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
       }
 
       if (analyser) rafRef.current = requestAnimationFrame(draw);
@@ -98,7 +185,7 @@ export function SpectrumVisualizer({ spectrum, analyser, height = 160, mode = "b
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       ro.disconnect();
     };
-  }, [spectrum, analyser, height, mode]);
+  }, [spectrum, analyser, height, mode, pointCount]);
 
   return <canvas ref={canvasRef} style={{ width: "100%", height }} className="rounded-lg" />;
 }
