@@ -134,28 +134,16 @@ export function DashboardView() {
             Combined Multi-Modal Acoustic Resonance & AI Visual Crack Analytics
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => api.downloadUsersCsv()}
-            className="gap-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 font-semibold"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Export User Registry (.csv)
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchDashboardData}
-            disabled={loading}
-            className="gap-2 border-white/15 bg-white/5 hover:bg-white/10"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh Data
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchDashboardData}
+          disabled={loading}
+          className="gap-2 border-white/15 bg-white/5 hover:bg-white/10"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh Data
+        </Button>
       </div>
 
       {error && (
