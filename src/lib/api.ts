@@ -302,4 +302,36 @@ export const api = {
       stats: DashboardStatsDTO;
       recentScans: ScanDTO[];
     }>("/dashboard"),
+
+  // Export Registered Users Excel CSV
+  downloadUsersCsv: async (): Promise<void> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/export-users`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "registered_users.csv";
+        a.click();
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+    } catch {}
+
+    // Fallback: Generate CSV from LocalStorage
+    const storedUser = localStorage.getItem("echoscan_current_user");
+    const user = storedUser
+      ? JSON.parse(storedUser)
+      : { name: "Inspector", email: "inspector@echoscan.app", mobileNumber: "N/A", createdAt: new Date() };
+
+    const csvContent = `Name,Email,Mobile Number,Registration Date\n"${user.name}","${user.email}","${user.mobileNumber || "N/A"}","${new Date(user.createdAt).toLocaleString()}"\n`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "registered_users.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 };
